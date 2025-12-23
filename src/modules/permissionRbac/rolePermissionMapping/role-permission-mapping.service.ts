@@ -74,7 +74,7 @@ export class RolePermissionService {
         apiId,
         result,
         HttpStatus.OK,
-        'Permission added succesfully.',
+        'Permission added successfully.',
       );
     } catch (error) {
       return APIResponse.error(
@@ -108,7 +108,7 @@ export class RolePermissionService {
         apiId,
         result,
         HttpStatus.OK,
-        'Permission updated succesfully.',
+        'Permission updated successfully.',
       );
     } catch (error) {
       return APIResponse.error(
@@ -134,7 +134,7 @@ export class RolePermissionService {
         apiId,
         result,
         HttpStatus.OK,
-        'Permission deleted succesfully.',
+        'Permission deleted successfully.',
       );
     } catch (error) {
       return APIResponse.error(

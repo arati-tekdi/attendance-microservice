@@ -6,8 +6,8 @@ import {
   ApiHeader,
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
-  ApiQuery,
   ApiOperation,
+  ApiBasicAuth,
 } from '@nestjs/swagger';
 import {
   Controller,
@@ -24,36 +24,45 @@ import {
   HttpStatus,
   Query,
 } from '@nestjs/common';
-import { AttendanceDto, BulkAttendanceDTO } from './dto/attendance.dto';
+import { AttendanceDto, BulkAttendanceDTO, Scope } from './dto/attendance.dto';
 import { AttendanceSearchDto } from './dto/attendance-search.dto';
 import { Response } from 'express';
 import { AttendanceService } from './attendance.service';
-import { createAttendanceExamplesForSwagger, createBulkAttendanceExamplesForSwagger, searchAttendanceExamples } from './dto/attendance.examples';
+import {
+  createAttendanceExamplesForSwagger,
+  createBulkAttendanceExamplesForSwagger,
+  searchAttendanceExamples,
+} from './dto/attendance.examples';
+import { GetUserId } from 'src/common/decorators/userId.decorator';
 
 @ApiTags('Attendance')
 @Controller('attendance')
+@ApiBasicAuth('access-token')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) { }
+  constructor(private readonly attendanceService: AttendanceService) {}
 
   @Post()
   @ApiCreatedResponse({
     description: 'Attendance has been created successfully.',
   })
-  @ApiOperation({ summary: "Create Attendance" })
-  @ApiBody({ type: AttendanceDto, examples: createAttendanceExamplesForSwagger })
+  @ApiOperation({
+    summary: 'Create Attendance',
+    description:
+      'Creates or updates attendance record with Kafka event publishing',
+  })
+  @ApiBody({
+    type: AttendanceDto,
+    examples: createAttendanceExamplesForSwagger,
+  })
   @ApiHeader({
     name: 'tenantid',
   })
-  @ApiQuery({
-    name: 'userId', required: true, type: 'string', description: 'userId required',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @UsePipes(new ValidationPipe({ transform: true }),)
+  @UsePipes(new ValidationPipe({ transform: true }))
   public async createAttendance(
     @Headers() headers,
     @Body() attendanceDto: AttendanceDto,
     @Res() response: Response,
-    @Query('userId') userId: string, // Now using userId from query
+    @GetUserId() userId: string,
     @UploadedFile() image,
   ) {
     if (!headers['tenantid']) {
@@ -65,7 +74,7 @@ export class AttendanceController {
 
     attendanceDto.tenantId = headers['tenantid'];
     attendanceDto.image = image?.filename;
-    attendanceDto.scope = 'student'; // Set default value to 'student'
+    attendanceDto.scope = attendanceDto.scope || Scope.student; // Set default value to 'student' if not provided
 
     const result = await this.attendanceService.updateAttendanceRecord(
       userId, // Pass userId from query param
@@ -79,7 +88,7 @@ export class AttendanceController {
   @ApiOkResponse({ description: 'Attendance List' })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
-  @ApiOperation({ summary: "Attendance Search" })
+  @ApiOperation({ summary: 'Attendance Search' })
   @ApiBody({ type: AttendanceSearchDto, examples: searchAttendanceExamples })
   // @UseInterceptors(ClassSerializerInterceptor)
   @UsePipes(ValidationPipe)
@@ -94,6 +103,7 @@ export class AttendanceController {
     @Req() request: Request,
     @Body() studentSearchDto: AttendanceSearchDto,
     @Res() response: Response,
+    @GetUserId() userId: string,
   ) {
     let tenantid = headers['tenantid'];
     if (!tenantid) {
@@ -117,21 +127,24 @@ export class AttendanceController {
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiOkResponse({ description: 'Attendance updated successfully' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  @ApiBody({ type: BulkAttendanceDTO, examples: createBulkAttendanceExamplesForSwagger })
-  @ApiOperation({ summary: "Create Bulk Attendance" })
+  @ApiBody({
+    type: BulkAttendanceDTO,
+    examples: createBulkAttendanceExamplesForSwagger,
+  })
+  @ApiOperation({
+    summary: 'Create Bulk Attendance',
+    description:
+      'Processes multiple attendance records with Kafka event publishing for each operation',
+  })
   @ApiHeader({
     name: 'tenantid',
   })
-  @ApiQuery({
-    name: 'userId', required: true, type: 'string', description: 'userId required',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @UsePipes(new ValidationPipe({ transform: true }),)
+  @UsePipes(new ValidationPipe({ transform: true }))
   public async multipleAttendance(
     @Headers() headers,
     @Res() response: Response,
     @Body() attendanceDtos: BulkAttendanceDTO,
-    @Query('userId') userId: string, // Now using userId from query
+    @GetUserId() userId: string,
   ) {
     const tenantId = headers['tenantid'];
     if (!tenantId) {
@@ -141,7 +154,7 @@ export class AttendanceController {
       });
     }
 
-    attendanceDtos.scope = 'student'; // Set default value to 'student'
+    attendanceDtos.scope = Scope.student; // Set default value to 'Learner'
     const result = await this.attendanceService.multipleAttendance(
       tenantId,
       userId, // Pass userId from query param
