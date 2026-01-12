@@ -242,6 +242,24 @@ export class UserAttendanceDTO {
   @ApiPropertyOptional()
   @Expose()
   session: string;
+  @IsOptional()
+  @IsBoolean()
+  lateMark?: boolean;
+
+  @IsOptional()
+  @IsString()
+  absentReason?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  validLocation?: boolean;
+
+  @ApiPropertyOptional()
+  @ValidateIf((o) => o.scope !== undefined && o.scope !== null)
+  @IsEnum(Scope, {
+    message: 'Please enter valid enum values for scope [self, Learner]',
+  })
+  scope: string;
 }
 
 export class BulkAttendanceDTO {

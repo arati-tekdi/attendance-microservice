@@ -16,8 +16,7 @@ export class AttendanceService {
     private readonly attendanceRepository: Repository<AttendanceEntity>,
     private readonly loggerService: LoggerService,
     private readonly kafkaService: KafkaService,
-
-  ) { }
+  ) {}
 
   /*
     Method to search attendance for all or for the key value pair provided in filter object 
@@ -74,7 +73,9 @@ export class AttendanceService {
             // If filter key is invalid (key should be a part of columns), return a BadRequest response
             this.loggerService.error(
               `Please Enter Valid Key to Search. Invalid Key entered Is ${key}`,
-              'BAD_REQUEST', apiId, JSON.stringify(attendanceSearchDto)
+              'BAD_REQUEST',
+              apiId,
+              JSON.stringify(attendanceSearchDto),
             );
             return APIResponse.error(
               response,
@@ -93,14 +94,17 @@ export class AttendanceService {
         // no facets
         let orderOption: any = {};
         if (sort && Array.isArray(sort) && sort.length === 2) {
-          const [column, order] = sort;  // sort on given column
-          if (attendanceKeys.includes(column)) { // column to be sorted should exist
+          const [column, order] = sort; // sort on given column
+          if (attendanceKeys.includes(column)) {
+            // column to be sorted should exist
             orderOption[column] = order.toUpperCase();
           } else {
             // If sort key is invalid, return a BadRequest response
             this.loggerService.error(
               `${column} Invalid sort key provide column name`,
-              'BAD_REQUEST', apiId, JSON.stringify(attendanceSearchDto)
+              'BAD_REQUEST',
+              apiId,
+              JSON.stringify(attendanceSearchDto),
             );
             return APIResponse.error(
               response,
@@ -120,11 +124,7 @@ export class AttendanceService {
           offset,
           offset + limit,
         );
-        this.loggerService.log(
-          'Attendance List Fetched Successfully',
-          apiId,
-
-        );
+        this.loggerService.log('Attendance List Fetched Successfully', apiId);
         return APIResponse.success(
           response,
           apiId,
@@ -147,7 +147,9 @@ export class AttendanceService {
             // If facet is not present in attendanceKeys, return a BadRequest response
             this.loggerService.error(
               `${facet} Invalid facet`,
-              'BAD_REQUEST', apiId, JSON.stringify(attendanceSearchDto)
+              'BAD_REQUEST',
+              apiId,
+              JSON.stringify(attendanceSearchDto),
             );
             return APIResponse.error(
               response,
@@ -165,16 +167,14 @@ export class AttendanceService {
         // Process the data to calculate counts based on each facet
         for (const facet of facetFields) {
           const { field } = facet;
-          const tree = await this.facetedSearch(
-            attendanceList,
-            [facet],
-            sort,
-          );
+          const tree = await this.facetedSearch(attendanceList, [facet], sort);
 
           if (!tree) {
             this.loggerService.error(
               'Invalid Sort Key for facets it has to be present_percentage or absent_percentage',
-              'BAD_REQUEST', apiId, JSON.stringify(attendanceSearchDto)
+              'BAD_REQUEST',
+              apiId,
+              JSON.stringify(attendanceSearchDto),
             );
             return APIResponse.error(
               response,
@@ -187,10 +187,7 @@ export class AttendanceService {
           result[field] = tree[field];
         }
 
-        this.loggerService.log(
-          'Attendance List Fetched Successfully',
-          apiId,
-        );
+        this.loggerService.log('Attendance List Fetched Successfully', apiId);
         return APIResponse.success(
           response,
           apiId,
@@ -207,7 +204,9 @@ export class AttendanceService {
       const errorMessage = error.message || 'Internal Server Error';
       this.loggerService.error(
         'INTERNAL_SERVER_ERROR',
-        errorMessage, apiId, JSON.stringify(attendanceSearchDto)
+        errorMessage,
+        apiId,
+        JSON.stringify(attendanceSearchDto),
       );
       return APIResponse.error(
         response,
@@ -234,7 +233,7 @@ export class AttendanceService {
   }
 
   async facetedSearch(attendanceRecords, facets, sort) {
-    // for each facet provided (facet is a column in table) calculate absent_percentage and present_percentage along with present and absent count for unique records 
+    // for each facet provided (facet is a column in table) calculate absent_percentage and present_percentage along with present and absent count for unique records
 
     const tree = {};
     const attendanceKeys = new Set<string>();
@@ -592,9 +591,13 @@ export class AttendanceService {
         this.loggerService.log(
           'Attendance updated successfully',
           apiId,
-          loginUserId
+          loginUserId,
         );
-        this.publishAttendanceEvent('updated', attendanceFound.attendanceId, apiId)
+        this.publishAttendanceEvent(
+          'updated',
+          attendanceFound.attendanceId,
+          apiId,
+        );
         return APIResponse.success(
           res,
           apiId,
@@ -612,9 +615,13 @@ export class AttendanceService {
         this.loggerService.log(
           'Attendance created successfully',
           apiId,
-          loginUserId
+          loginUserId,
         );
-        this.publishAttendanceEvent('created', attendanceCreated.attendanceId, apiId)
+        this.publishAttendanceEvent(
+          'created',
+          attendanceCreated.attendanceId,
+          apiId,
+        );
         // .catch(error => LoggerUtil.error(
         //   `Failed to publish user updated event to Kafka`,
         //   `Error: ${error.message}`,
@@ -632,7 +639,9 @@ export class AttendanceService {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
         'INTERNAL_SERVER_ERROR',
-        errorMessage, apiId, loginUserId
+        errorMessage,
+        apiId,
+        loginUserId,
       );
       return APIResponse.error(
         res,
@@ -643,7 +652,6 @@ export class AttendanceService {
       );
     }
   }
-
 
   /*Method to update attendance for userId
     @return updated attendance record based on attendanceId
@@ -777,6 +785,9 @@ export class AttendanceService {
           metaData: attendance?.metaData,
           syncTime: attendance?.syncTime,
           session: attendance?.session,
+          lateMark: attendance?.lateMark,
+          absentReason: attendance?.absentReason,
+          validLocation: attendance?.validLocation,
           createdBy: loginUserId,
           updatedBy: loginUserId,
         });
@@ -789,10 +800,18 @@ export class AttendanceService {
           if (!attendanceRes) {
             let createAttendance = await this.createAttendance(userAttendance);
             results.push({ status: 'created', attendance: createAttendance });
-            this.publishAttendanceEvent('created', createAttendance.attendanceId, apiId);
+            this.publishAttendanceEvent(
+              'created',
+              createAttendance.attendanceId,
+              apiId,
+            );
           } else {
             results.push({ status: 'updated', attendance: attendanceRes });
-            this.publishAttendanceEvent('updated', attendanceRes.attendanceId, apiId);
+            this.publishAttendanceEvent(
+              'updated',
+              attendanceRes.attendanceId,
+              apiId,
+            );
           }
           count++;
         } catch (e) {
@@ -805,7 +824,7 @@ export class AttendanceService {
             'BAD_REQUEST',
             `Attendance Can not be created or updated.Error is ${errors[0].error}`,
             apiId,
-            userId
+            userId,
           );
           return APIResponse.error(
             res,
@@ -818,7 +837,7 @@ export class AttendanceService {
         this.loggerService.log(
           'Attendance created successfully',
           apiId,
-          userId
+          userId,
         );
         return APIResponse.success(
           res,
@@ -831,7 +850,7 @@ export class AttendanceService {
         this.loggerService.log(
           'Attendance created successfully',
           apiId,
-          userId
+          userId,
         );
         return APIResponse.success(
           res,
@@ -847,7 +866,7 @@ export class AttendanceService {
         'Internal Server Error',
         e.message,
         apiId,
-        userId
+        userId,
       );
       return APIResponse.error(
         res,
@@ -859,20 +878,19 @@ export class AttendanceService {
     }
   }
 
-
   private async publishAttendanceEvent(
     eventType: 'created' | 'updated' | 'deleted',
     attendanceId: string,
-    apiId: string
+    apiId: string,
   ): Promise<void> {
-    try {      
+    try {
       // For delete events, we may want to include just basic information since the attendance might already be removed
       let attendanceData: any;
-      
+
       if (eventType === 'deleted') {
         attendanceData = {
           attendanceId: attendanceId,
-          deletedAt: new Date().toISOString()
+          deletedAt: new Date().toISOString(),
         };
       } else {
         // For create and update, fetch complete data from DB
@@ -882,11 +900,15 @@ export class AttendanceService {
             where: { attendanceId: attendanceId },
           });
         } catch (error) {
-          attendanceData = { attendanceId };          
+          attendanceData = { attendanceId };
         }
       }
 
-      await this.kafkaService.publishAttendanceEvent(eventType, attendanceData, attendanceId);
+      await this.kafkaService.publishAttendanceEvent(
+        eventType,
+        attendanceData,
+        attendanceId,
+      );
       // LoggerUtil.log(`attendance ${eventType} event published to Kafka for attendance ${attendanceId}`, apiId);
     } catch (error) {
       // LoggerUtil.error(
